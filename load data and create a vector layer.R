@@ -79,6 +79,25 @@ meles.sp <- project(meles.sp, st_crs(scot)$wkt)
 # crop badger points to the study area
 meles.fin <- crop(meles.sp, vect(scot))
 
+
 # inspect
 plot(st_geometry(scot))
+plot(meles.fin, add = TRUE)
+
+# 4. Load and prepare environmental rasters
+
+# load in the land cover map
+LCM <- rast("LCMUK.tif")
+
+# select the land cover classification layer
+LCM <- LCM$LCMUK_1
+
+# crop to the extent of the study area plus a little more
+LCM <- crop(LCM, vect(st_buffer(scot, dist = 1000)))
+
+# now mask to the actual study area boundary
+LCM <- mask(LCM, vect(scot))
+
+# inspect
+plot(LCM)
 plot(meles.fin, add = TRUE)
