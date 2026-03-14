@@ -65,3 +65,20 @@ crs(meles.sp) <- "epsg:4326"
 # plot our points
 plot(meles.sp)
 
+# 3. Create spatial objects and define study extent（week3）
+
+# read in the study area polygon
+scot <- st_read("scotSamp.shp")
+
+# inspect study area geometry only
+plot(st_geometry(scot))
+
+# project badger points to the same CRS as the study area
+meles.sp <- project(meles.sp, st_crs(scot)$wkt)
+
+# crop badger points to the study area
+meles.fin <- crop(meles.sp, vect(scot))
+
+# inspect
+plot(st_geometry(scot))
+plot(meles.fin, add = TRUE)
