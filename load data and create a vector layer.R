@@ -166,3 +166,26 @@ melesData <- rbind(Pres, Abs)
 # inspect
 head(melesData)
 summary(melesData)
+
+# 8. Fit GLM
+
+# inspect the response and predictor
+table(melesData$Pres)
+table(melesData$broadleaf)
+table(melesData$broadleaf, melesData$Pres)
+
+# fit a binomial GLM
+glm.meles <- glm(Pres ~ broadleaf, family = "binomial", data = melesData)
+
+# inspect model summary
+summary(glm.meles)
+
+# inspect model fit using AIC
+AIC(glm.meles)
+
+# generate predicted probabilities for the point data
+melesData$glm.pred <- predict(glm.meles, type = "response")
+
+# inspect
+head(melesData)
+summary(melesData$glm.pred)
