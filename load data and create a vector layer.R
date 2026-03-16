@@ -101,3 +101,32 @@ LCM <- mask(LCM, vect(scot))
 # inspect
 plot(LCM)
 plot(meles.fin, add = TRUE)
+
+# 5. Scale analysis for broadleaf woodland
+
+# convert raster to factor so categories can be accessed
+LCM <- as.factor(LCM)
+
+# inspect land cover classes
+levels(LCM)
+
+# create reclassification vector
+# broadleaf woodland = 1
+# all other land cover classes = 0
+reclass <- c(0,1,rep(0,20))
+
+# combine with raster categories
+RCmatrix <- cbind(levels(LCM)[[1]], reclass)
+
+# keep only relevant columns
+RCmatrix <- RCmatrix[,2:3]
+
+# ensure columns are numeric
+RCmatrix <- apply(RCmatrix, 2, FUN = as.numeric)
+
+# reclassify raster to create binary broadleaf woodland map
+broadleaf <- classify(LCM, RCmatrix)
+
+# inspect result
+plot(broadleaf)
+plot(meles.fin, add = TRUE, col = "red")
