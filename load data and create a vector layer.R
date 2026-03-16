@@ -130,3 +130,16 @@ broadleaf <- classify(LCM, RCmatrix)
 # inspect result
 plot(broadleaf)
 plot(meles.fin, add = TRUE, col = "red")
+
+# 6. Generate background points
+
+# set seed for reproducibility
+set.seed(11)
+
+# sample random background points from the study area
+back.xy <- spatSample(broadleaf, size = 1000, as.points = TRUE, na.rm = TRUE)
+
+# inspect
+plot(broadleaf)
+plot(meles.fin, add = TRUE, col = "red")
+plot(back.xy, add = TRUE, col = "blue")
