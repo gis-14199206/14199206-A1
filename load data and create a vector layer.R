@@ -143,3 +143,26 @@ back.xy <- spatSample(broadleaf, size = 1000, as.points = TRUE, na.rm = TRUE)
 plot(broadleaf)
 plot(meles.fin, add = TRUE, col = "red")
 plot(back.xy, add = TRUE, col = "blue")
+
+# 7. Extract covariates to points
+
+# extract broadleaf values to background points
+eA <- extract(broadleaf, back.xy)
+
+# extract broadleaf values to presence points
+eP <- extract(broadleaf, meles.fin)
+
+# inspect frequency tables
+table(eA[,2])
+table(eP[,2])
+
+# create data frames for absence and presence
+Abs <- data.frame(crds(back.xy), broadleaf = eA[,2], Pres = 0)
+Pres <- data.frame(crds(meles.fin), broadleaf = eP[,2], Pres = 1)
+
+# combine presence and background data
+melesData <- rbind(Pres, Abs)
+
+# inspect
+head(melesData)
+summary(melesData)
