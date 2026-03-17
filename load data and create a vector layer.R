@@ -404,3 +404,46 @@ names(allEnv) <- c("broadleaf", "urban", "elevation")
 
 # inspect final stack
 plot(allEnv)
+
+# 9. Extract covariates to presence and background points
+
+# get environmental covariates at presence locations
+eP <- extract(allEnv, meles.fin)
+
+# create presence data frame
+Pres.cov <- data.frame(eP, Pres = 1)
+
+# remove the first column which is just an ID field
+Pres.cov <- Pres.cov[, -1]
+
+# inspect
+head(Pres.cov)
+summary(Pres.cov)
+
+
+# get environmental covariates at background locations
+eA <- extract(allEnv, back.xy)
+
+# create background data frame
+Back.cov <- data.frame(eA, Pres = 0)
+
+# remove the first column which is just an ID field
+Back.cov <- Back.cov[, -1]
+
+# inspect
+head(Back.cov)
+summary(Back.cov)
+
+
+# combine presence and background data
+all.cov <- rbind(Pres.cov, Back.cov)
+
+# remove missing values
+all.cov <- na.omit(all.cov)
+
+# inspect final modelling data
+head(all.cov)
+summary(all.cov)
+
+# check number of presences and background points
+table(all.cov$Pres)
