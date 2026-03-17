@@ -5,14 +5,18 @@
 # 2. Create a vector layer from coordinates
 # 3. Create spatial objects and define study extent
 # 4. Load and prepare environmental rasters
-# 5. Scale analysis for broadleaf woodland
+# 5. Reclassify land cover and derive habitat variables
 # 6. Generate background points
-# 7. Extract covariates to points
-# 8. Fit GLM
-# 9. Fit Maxnet / Random Forest
-# 10. Cross-validation and model evaluation
-# 11. Predict habitat suitability
-# 12. Plot final maps
+# 7. Conduct scale analysis for broadleaf woodland and select optimum neighbourhood size
+# 8. Build final environmental predictor stack
+# 9. Extract covariates to presence and background points
+# 10. Explore predictor relationships and inspect data structure
+# 11. Fit GLM
+# 12. Fit Maxnet
+# 13. Validate models using cross-validation
+# 14. Compare model performance
+# 15. Predict habitat suitability across the study area
+# 16. Plot final maps and interpretation figures
 
 
 
@@ -27,6 +31,11 @@ install.packages(c("terra","sf","mapview"))
 # load libraries
 library(terra)
 library(sf)
+library(dismo)
+library(maxnet)
+library(glmnet)
+library(precrec)
+library(ggplot2)
 
 # read in the spreadsheet containing the coordinates for occurrence locations
 meles <- read.csv("Melesmeles.csv")
@@ -102,34 +111,77 @@ LCM <- mask(LCM, vect(scot))
 plot(LCM)
 plot(meles.fin, add = TRUE)
 
-# 5. Scale analysis for broadleaf woodland
+# load elevation data (Week 3 practical)
+DEM <- rast("demScotland.tif")
 
-# convert raster to factor so categories can be accessed
+# crop to study area
+DEM <- crop(DEM, vect(st_buffer(scot, dist = 1000)))
+
+# mask to study area boundary
+DEM <- mask(DEM, vect(scot))
+
+# inspect
+plot(DEM)
+plot(meles.fin, add = TRUE)
+
+# 5. Reclassify land cover and derive habitat variables
+
+# treat land cover raster as categorical
 LCM <- as.factor(LCM)
 
 # inspect land cover classes
 levels(LCM)
 
-# create reclassification vector
-# broadleaf woodland = 1
-# all other land cover classes = 0
-reclass <- c(0,1,rep(0,20))
+# -------------------------
+# 5a. Broadleaf woodland
+# -------------------------
 
-# combine with raster categories
+# create reclassification vector:
+# broadleaf woodland = class 1
+# all other classes = 0
+reclass <- c(0, 1, rep(0, nrow(levels(LCM)[[1]]) - 2))
+
+# combine with original classes
 RCmatrix <- cbind(levels(LCM)[[1]], reclass)
 
-# keep only relevant columns
-RCmatrix <- RCmatrix[,2:3]
+# keep only class code + new value
+RCmatrix <- RCmatrix[, 2:3]
 
-# ensure columns are numeric
+# convert to numeric
 RCmatrix <- apply(RCmatrix, 2, FUN = as.numeric)
 
-# reclassify raster to create binary broadleaf woodland map
+# reclassify raster
 broadleaf <- classify(LCM, RCmatrix)
 
-# inspect result
-plot(broadleaf)
+# inspect
+plot(broadleaf, main = "Broadleaf woodland")
 plot(meles.fin, add = TRUE, col = "red")
+
+
+# -------------------------
+# 5b. Urban land cover
+# -------------------------
+
+# create reclassification vector:
+# urban + suburban = 1 (assumed last two classes)
+reclassUrban <- c(rep(0, nrow(levels(LCM)[[1]]) - 2), 1, 1)
+
+# combine with original classes
+RCmatrixUrban <- cbind(levels(LCM)[[1]], reclassUrban)
+
+# keep only class code + new value
+RCmatrixUrban <- RCmatrixUrban[, 2:3]
+
+# convert to numeric
+RCmatrixUrban <- apply(RCmatrixUrban, 2, FUN = as.numeric)
+
+# reclassify raster
+urban <- classify(LCM, RCmatrixUrban)
+
+# inspect
+plot(urban, main = "Urban land cover")
+plot(meles.fin, add = TRUE, col = "blue")
+
 
 # 6. Generate background points
 
@@ -189,3 +241,25 @@ melesData$glm.pred <- predict(glm.meles, type = "response")
 # inspect
 head(melesData)
 summary(melesData$glm.pred)
+
+# 9. Fit Maxnet model
+
+library(maxnet)
+
+# response variable
+p <- melesData$Pres
+
+# predictor
+env <- data.frame(broadleaf = melesData$broadleaf)
+
+# fit model
+maxnet.meles <- maxnet(p = p, data = env, f = maxnet.formula(p, env))
+
+# check model
+maxnet.meles
+
+# predict probability
+melesData$maxnet.pred <- predict(maxnet.meles, env, type = "cloglog")
+
+# inspect
+summary(melesData$maxnet.pred)
