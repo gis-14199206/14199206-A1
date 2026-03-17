@@ -300,3 +300,107 @@ opt
 # store optimum radius
 opt_scale <- opt$radius
 opt_scale
+
+# 8. Build final environmental predictor stack
+
+# -------------------------
+# 8a. Broadleaf woodland at optimum scale
+# -------------------------
+
+# get number of pixels needed to cover the optimum radius
+nPix <- round(opt_scale / res(broadleaf)[1])
+
+# convert radius to full matrix width
+nPix <- (nPix * 2) + 1
+
+# build weights matrix
+weightsMatrix <- matrix(1:nPix^2, nrow = nPix, ncol = nPix)
+
+# get focal cell
+x <- ceiling(ncol(weightsMatrix) / 2)
+y <- ceiling(nrow(weightsMatrix) / 2)
+
+focalCell <- weightsMatrix[x, y]
+
+# get focal cell index
+indFocal <- which(weightsMatrix == focalCell, arr.ind = TRUE)
+
+# compute distances from focal cell
+distances <- list()
+
+for(i in 1:nPix^2){
+  ind.i <- which(weightsMatrix == i, arr.ind = TRUE)
+  
+  diffX <- abs(ind.i[1,1] - indFocal[1,1]) * res(broadleaf)[1]
+  diffY <- abs(ind.i[1,2] - indFocal[1,2] ) * res(broadleaf)[1]
+  
+  dist.i <- sqrt(diffX^2 + diffY^2)
+  
+  distances[[i]] <- dist.i
+}
+
+# add distance values to weights matrix
+weightsMatrix[] <- unlist(distances)
+
+# set cells outside search radius to NA
+weightsMatrix[weightsMatrix > opt_scale] <- NA
+
+# normalise weights matrix so values sum to one
+weightsMatrixNorm <- weightsMatrix
+weightsMatrixNorm[!is.na(weightsMatrixNorm)] <- 1 / length(weightsMatrixNorm[!is.na(weightsMatrixNorm)])
+
+# apply focal analysis to calculate proportion of broadleaf woodland
+broadleaf_prop <- focal(broadleaf, w = weightsMatrixNorm, fun = "sum")
+
+# inspect
+plot(broadleaf_prop, main = "Broadleaf proportion at optimum scale")
+plot(meles.fin, add = TRUE, col = "red")
+
+
+# -------------------------
+# 8b. Urban land cover
+# -------------------------
+
+# inspect land cover classes
+levels(LCM)
+
+# create reclassification matrix for urban land cover
+lc_levels <- levels(LCM)[[1]]
+
+RCmatrixUrban <- data.frame(
+  old = lc_levels[,2],
+  new = ifelse(lc_levels[,2] %in% c(20, 21), 1, 0)
+)
+
+RCmatrixUrban <- as.matrix(RCmatrixUrban)
+
+# classify raster
+urban <- classify(LCM, RCmatrixUrban)
+
+# inspect
+plot(urban, main = "Urban land cover")
+plot(meles.fin, add = TRUE, col = "blue")
+
+
+# -------------------------
+# 8c. Elevation
+# -------------------------
+
+# resample DEM to match the broadleaf raster
+elevation <- resample(DEM, broadleaf_prop)
+
+# inspect
+plot(elevation, main = "Elevation")
+plot(meles.fin, add = TRUE, col = "black")
+
+
+# -------------------------
+# 8d. Final predictor stack
+# -------------------------
+
+allEnv <- c(broadleaf_prop, urban, elevation)
+
+names(allEnv) <- c("broadleaf", "urban", "elevation")
+
+# inspect final stack
+plot(allEnv)
