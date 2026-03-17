@@ -196,70 +196,107 @@ plot(broadleaf)
 plot(meles.fin, add = TRUE, col = "red")
 plot(back.xy, add = TRUE, col = "blue")
 
-# 7. Extract covariates to points
-
-# extract broadleaf values to background points
-eA <- extract(broadleaf, back.xy)
-
-# extract broadleaf values to presence points
-eP <- extract(broadleaf, meles.fin)
-
-# inspect frequency tables
-table(eA[,2])
-table(eP[,2])
+# 7. Conduct scale analysis for broadleaf woodland
 
 # create data frames for absence and presence
-Abs <- data.frame(crds(back.xy), broadleaf = eA[,2], Pres = 0)
-Pres <- data.frame(crds(meles.fin), broadleaf = eP[,2], Pres = 1)
+Abs <- data.frame(crds(back.xy), Pres = 0)
 
-# combine presence and background data
+Pres <- data.frame(crds(meles.fin), Pres = 1)
+
+# bind the two data frames by row
 melesData <- rbind(Pres, Abs)
 
+# convert to sf object so that coordinates can be accessed on and off
+melesSF <- st_as_sf(melesData, coords = c("x", "y"), crs = "EPSG:27700")
+
+
+# function for automating buffer calculations
+landBuffer <- function(speciesData, r){         
+  
+  # buffer each point
+  melesBuffer <- st_buffer(speciesData, dist = r)                     
+  
+  # crop the broadleaf layer to the buffer extent
+  bufferlandcover <- crop(broadleaf, vect(melesBuffer))              
+  
+  # extract raster values within each buffer and sum
+  masklandcover <- extract(bufferlandcover, vect(melesBuffer), fun = "sum")      
+  
+  # get broadleaf area (cell area = resolution x resolution)
+  landcoverArea <- masklandcover[,2] * prod(res(broadleaf))  
+  
+  # convert to percentage cover
+  percentcover <- landcoverArea / as.numeric(st_area(melesBuffer)) * 100 
+  
+  # return result
+  return(percentcover)                                       
+}
+
+
+# sequence of radii to test
+radii <- seq(100, 2000, by = 100)
+
+# empty list to store outputs
+resList <- list()
+
+for(i in radii){
+  res.i <- landBuffer(speciesData = melesSF, r = i)
+  resList[[i/100]] <- res.i
+  print(i)
+}
+
+# combine all results
+resFin <- do.call("cbind", resList)
+
+# convert to data frame
+glmData <- data.frame(resFin)
+
+# assign intuitive column names
+colnames(glmData) <- paste("radius", radii, sep = "")
+
+# add presence/absence variable
+glmData$Pres <- melesData$Pres
+
 # inspect
-head(melesData)
-summary(melesData)
+head(glmData)
 
-# 8. Fit GLM
 
-# inspect the response and predictor
-table(melesData$Pres)
-table(melesData$broadleaf)
-table(melesData$broadleaf, melesData$Pres)
+# create empty data frame to hold model results
+glmRes <- data.frame(radius = NA, loglikelihood = NA)
 
-# fit a binomial GLM
-glm.meles <- glm(Pres ~ broadleaf, family = "binomial", data = melesData)
+# fit GLM for each radius and store log-likelihood
+for(i in radii){
+  
+  n.i <- paste0("Pres~", "radius", i, sep = "")
+  
+  glm.i <- glm(formula(n.i), family = "binomial", data = glmData)
+  
+  ll.i <- as.numeric(logLik(glm.i))
+  
+  glmRes <- rbind(glmRes, c(i, ll.i))
+}
 
-# inspect model summary
-summary(glm.meles)
-
-# inspect model fit using AIC
-AIC(glm.meles)
-
-# generate predicted probabilities for the point data
-melesData$glm.pred <- predict(glm.meles, type = "response")
-
-# inspect
-head(melesData)
-summary(melesData$glm.pred)
-
-# 9. Fit Maxnet model
-
-library(maxnet)
-
-# response variable
-p <- melesData$Pres
-
-# predictor
-env <- data.frame(broadleaf = melesData$broadleaf)
-
-# fit model
-maxnet.meles <- maxnet(p = p, data = env, f = maxnet.formula(p, env))
-
-# check model
-maxnet.meles
-
-# predict probability
-melesData$maxnet.pred <- predict(maxnet.meles, env, type = "cloglog")
+# remove NA row
+glmRes <- glmRes[!is.na(glmRes$radius), ]
 
 # inspect
-summary(melesData$maxnet.pred)
+glmRes
+
+# plot results
+plot(glmRes$radius, glmRes$loglikelihood,
+     type = "b",
+     frame = FALSE,
+     pch = 19,
+     col = "red",
+     xlab = "buffer radius (m)",
+     ylab = "logLik")
+
+# identify optimum scale
+opt <- glmRes[which.max(glmRes$loglikelihood), ]
+
+# print optimum scale
+opt
+
+# store optimum radius
+opt_scale <- opt$radius
+opt_scale
