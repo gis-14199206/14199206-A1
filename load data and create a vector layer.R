@@ -447,3 +447,58 @@ summary(all.cov)
 
 # check number of presences and background points
 table(all.cov$Pres)
+
+# 10. Fit GLM
+
+# inspect response variable
+table(all.cov$Pres)
+
+# fit binomial GLM
+glm.meles <- glm(Pres ~ broadleaf + urban + elevation,
+                 family = "binomial",
+                 data = all.cov)
+
+# inspect model
+summary(glm.meles)
+
+# inspect model fit
+AIC(glm.meles)
+
+# generate predicted probabilities for each observation
+all.cov$glm.pred <- predict(glm.meles, type = "response")
+
+# inspect predictions
+head(all.cov)
+summary(all.cov$glm.pred)
+
+# 11. Fit Maxnet
+
+# load libraries
+library(maxnet)
+library(glmnet)
+
+# response variable
+p <- all.cov$Pres
+
+# predictor variables
+env <- all.cov[, c("broadleaf", "urban", "elevation")]
+
+# fit Maxnet model using linear and quadratic features
+maxnet.meles <- maxnet(
+  p = p,
+  data = env,
+  f = maxnet.formula(p, env, classes = "lq")
+)
+
+# inspect model
+maxnet.meles
+
+# generate predicted values for modelling data
+all.cov$maxnet.pred <- predict(maxnet.meles, env, type = "cloglog")
+
+# inspect predictions
+head(all.cov)
+summary(all.cov$maxnet.pred)
+
+# optional: response plots
+plot(maxnet.meles, type = "cloglog")
