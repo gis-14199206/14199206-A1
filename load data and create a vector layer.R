@@ -502,3 +502,119 @@ summary(all.cov$maxnet.pred)
 
 # optional: response plots
 plot(maxnet.meles, type = "cloglog")
+
+# 12. Fit Random Forest
+
+library(randomForest)
+
+# response variable must be a factor for random forest classification
+all.cov$Pres <- as.factor(all.cov$Pres)
+
+# inspect
+table(all.cov$Pres)
+
+# fit random forest model
+rf.meles <- randomForest(Pres ~ broadleaf + urban + elevation,
+                         data = all.cov,
+                         ntree = 500,
+                         mtry = 2)
+
+# inspect model
+rf.meles
+
+# variable importance
+varImpPlot(rf.meles)
+
+# generate predicted probabilities for each observation
+all.cov$rf.pred <- predict(rf.meles, type = "prob")[,2]
+
+# inspect predictions
+head(all.cov)
+summary(all.cov$rf.pred)
+
+# 13. Validate models (GLM, Maxnet, Random Forest)
+
+library(dismo)
+
+# -------------------------
+# 13a. GLM
+# -------------------------
+
+eglm <- evaluate(
+  p = all.cov$glm.pred[all.cov$Pres == 1],
+  a = all.cov$glm.pred[all.cov$Pres == 0]
+)
+
+# AUC
+auc.glm <- eglm@auc
+auc.glm
+
+# plot ROC
+plot(eglm, "ROC",
+     col = "blue",
+     lwd = 2,
+     main = "ROC comparison")
+
+
+# -------------------------
+# 13b. Maxnet
+# -------------------------
+
+emax <- evaluate(
+  p = all.cov$maxnet.pred[all.cov$Pres == 1],
+  a = all.cov$maxnet.pred[all.cov$Pres == 0]
+)
+
+# AUC
+auc.maxnet <- emax@auc
+auc.maxnet
+
+# add to plot
+plot(emax, "ROC",
+     col = "red",
+     lwd = 2,
+     add = TRUE)
+
+
+# -------------------------
+# 13c. Random Forest
+# -------------------------
+
+erf <- evaluate(
+  p = all.cov$rf.pred[all.cov$Pres == 1],
+  a = all.cov$rf.pred[all.cov$Pres == 0]
+)
+
+# AUC
+auc.rf <- erf@auc
+auc.rf
+
+# add to plot
+plot(erf, "ROC",
+     col = "green",
+     lwd = 2,
+     add = TRUE)
+
+
+# -------------------------
+# legend
+# -------------------------
+
+legend("bottomright",
+       legend = c("GLM", "Maxnet", "Random Forest"),
+       col = c("blue", "red", "green"),
+       lwd = 2,
+       cex = 0.7)
+
+
+# -------------------------
+# 13d. Summary table
+# -------------------------
+
+model.performance <- data.frame(
+  Model = c("GLM", "Maxnet", "Random Forest"),
+  AUC = c(auc.glm, auc.maxnet, auc.rf)
+)
+
+model.performance
+
