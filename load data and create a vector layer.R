@@ -618,3 +618,76 @@ model.performance <- data.frame(
 
 model.performance
 
+# 14. Predict habitat suitability across the study area
+
+# -------------------------
+# 14a. GLM prediction
+# -------------------------
+
+glm.map <- predict(allEnv, glm.meles, type = "response")
+
+# inspect
+plot(glm.map, main = "GLM habitat suitability")
+
+
+# -------------------------
+# 14b. Maxnet prediction
+# -------------------------
+
+maxnet.map <- predict(allEnv, maxnet.meles,
+                      clamp = FALSE,
+                      na.rm = TRUE,
+                      type = "cloglog")
+
+# inspect
+plot(maxnet.map, main = "Maxnet habitat suitability")
+
+
+# -------------------------
+# 14c. Random Forest prediction
+# -------------------------
+
+rf.map <- predict(allEnv, rf.meles, type = "prob", index = 2)
+
+# inspect
+plot(rf.map, main = "Random Forest habitat suitability")
+
+# 15. Plot final maps
+
+# -------------------------
+# 15a. Extract thresholds
+# -------------------------
+
+th.glm <- eglm@t[which.max(eglm@TPR + eglm@TNR)]
+th.maxnet <- emax@t[which.max(emax@TPR + emax@TNR)]
+th.rf <- erf@t[which.max(erf@TPR + erf@TNR)]
+
+th.glm
+th.maxnet
+th.rf
+
+
+# -------------------------
+# 15b. Continuous suitability maps
+# -------------------------
+
+par(mfrow = c(1, 3))
+
+plot(glm.map, main = "GLM suitability")
+
+plot(maxnet.map, main = "Maxnet suitability")
+
+plot(rf.map, main = "Random Forest suitability")
+
+
+# -------------------------
+# 15c. Binary presence / absence maps
+# -------------------------
+
+par(mfrow = c(1, 3))
+
+plot(glm.map > th.glm, main = "GLM presence / absence")
+
+plot(maxnet.map > th.maxnet, main = "Maxnet presence / absence")
+
+plot(rf.map > th.rf, main = "Random Forest presence / absence")
